@@ -5,10 +5,6 @@
 
 Belt's missing piece, Persistent Vector for ReScript.
 
-## Benchmarks
-
-https://reason-seoul.github.io/rescript-vector/
-
 ## References
 
 - [Extreme Cleverness: Functional Data Structures in Scala](https://www.infoq.com/presentations/Functional-Data-Structures-in-Scala/)

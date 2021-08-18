@@ -8,6 +8,11 @@ Fast and efficiant immutable collection for ReScript/TypeScript/JavaScript writt
 | :--------------------------------- | :------------------------------- | --- |
 | [rescript-vector](packages/vector) | Persistent Vector                | [![Package Version](https://img.shields.io/npm/v/rescript-vector)](https://www.npmjs.com/package/rescript-vector) |
 
+
+## Benchmarks
+
+https://reason-seoul.github.io/rescript-collection/
+
 ## License
 
 MIT
