@@ -1,5 +1,11 @@
 # rescript-vector
 
+## 0.5.0
+
+### Minor Changes
+
+- 7c50fba: improve performance
+
 ## 0.4.0
 
 ### Minor Changes
