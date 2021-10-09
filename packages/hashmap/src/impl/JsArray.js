@@ -42,14 +42,16 @@ function cloneWithout(ar, i) {
   return newAr;
 }
 
-function cloneWithoutUnstable(ar, i) {
+function cloneWithoutUnstable(ar, idx) {
   var len = ar.length;
   if (len === 1) {
     return [];
   }
-  var newAr = Array(ar.length - 1 | 0);
-  if (i !== (len - 1 | 0)) {
-    newAr[i] = ar[len - 1 | 0];
+  var newLen = len - 1 | 0;
+  var newAr = Array(newLen);
+  blit(ar, 0, newAr, 0, newLen);
+  if (idx < newLen) {
+    newAr[idx] = ar[len - 1 | 0];
   }
   return newAr;
 }

@@ -41,3 +41,5 @@ let remove = ({root, count, hasher} as m, k) => {
 }
 
 let size = m => m.count
+
+let log = m => Hamt.log(m.root)

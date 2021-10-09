@@ -14,3 +14,7 @@ let set: (t<'k, 'v>, 'k, 'v) => t<'k, 'v>
 let remove: (t<'k, 'v>, 'k) => t<'k, 'v>
 
 let size: t<'k, 'v> => int
+
+// let keysToArray: t<'k, 'v> => array<'k>
+
+let log: t<'k, 'v> => unit

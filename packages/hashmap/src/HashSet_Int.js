@@ -42,6 +42,10 @@ function fromArray(ar) {
   return s.contents;
 }
 
+function log(s) {
+  return HashMap.log(s.hashMap);
+}
+
 export {
   empty ,
   get ,
@@ -49,6 +53,7 @@ export {
   remove ,
   size ,
   fromArray ,
+  log ,
   
 }
 /* empty Not a pure module */

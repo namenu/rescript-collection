@@ -16,14 +16,6 @@ let testHasher = (. k) => {
   }
 }
 
-// debug only
-@warning("-32")
-let toBinString = %raw(`
-function (n) {
-  return "0b" + n.toString(2).padStart(8, '0');
-}
-`)
-
 let bitPositions = bits => {
   let rec f = (bits, ~idx) => {
     if bits == 0 {
@@ -42,7 +34,7 @@ let log = root => {
     let log = s => {
       Js.log("\t"->Js.String2.repeat(depth) ++ s)
     }
-    log(`Bitmap: ` ++ root.bitmap->toBinString)
+    log(`Bitmap: ` ++ root.bitmap->Bit.toBinString)
     Belt.Array.zip(bitPositions(root.bitmap), root.data)->Belt.Array.forEach(((idx, v)) => {
       switch v {
       | BitmapIndexed(t) =>
@@ -50,6 +42,7 @@ let log = root => {
         p(t, ~depth=depth + 1)
       | MapEntry(k, v) => log(j`[$idx] MapEntry: $k => $v`)
       | HashCollision({entries}) => log(j`[$idx] HashCollision: $entries`)
+      | ArrayMap(ar) => log(j`[$idx] ArrayMap: $ar`)
       }
     })
   }

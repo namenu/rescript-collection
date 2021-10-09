@@ -51,14 +51,16 @@ let cloneWithout = (ar, i) => {
   newAr
 }
 
-let cloneWithoutUnstable = (ar, i) => {
+let cloneWithoutUnstable = (ar, idx) => {
   let len = length(ar)
   if len == 1 {
     []
   } else {
-    let newAr = make(length(ar) - 1)
-    if i != len - 1 {
-      set(newAr, i, get(ar, len - 1))
+    let newLen = len - 1
+    let newAr = make(newLen)
+    blit(~src=ar, ~srcOffset=0, ~dst=newAr, ~dstOffset=0, ~len=newLen)
+    if idx < newLen {
+      set(newAr, idx, get(ar, len - 1))
     }
     newAr
   }

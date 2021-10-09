@@ -14,6 +14,8 @@
 
 module A = JsArray
 
+let maxArrayMapEntries = 8
+
 let numBits = 5
 let maskBits = 0x01F // 31bits
 // let numBits = 2
@@ -112,9 +114,7 @@ let arrayMap_find = (entries, ~key) => {
   }
 }
 
-let arrayMap_assoc = (entries, ~key, ~value) => {
-  let idx = arrayMap_findIndex(entries, ~key)
-  // exists? and value is the same
+let arrayMap_assocAt = (entries, idx, ~key, ~value) => {
   if idx != -1 {
     if snd(A.get(entries, idx)) === value {
       entries
@@ -281,6 +281,16 @@ and makeNode = (~shift, ~hasher, h1, k1, v1, h2, k2, v2): node<'k, 'v> => {
     )
   }
 }
+and bitmapIndexed_fromArrayMap = (node, entries, ~hasher) => {
+  // assert (entries->A.length >= 8)
+  let node = ref(node)
+  for i in 0 to A.length(entries) - 1 {
+    let (k, v) = A.get(entries, i)
+    node :=
+      node.contents->bitmapIndexed_assoc(~shift=0, ~hasher, ~hash=hasher(. k), ~key=k, ~value=v)
+  }
+  BitmapIndexed(node.contents)
+}
 
 /**
  * 논문에서는 노드가 2개 이하인 경우 trie 축소를 하지만,
@@ -380,13 +390,24 @@ let assoc = (node, ~shift, ~hasher, ~hash, ~key, ~value) => {
     } else {
       Some(BitmapIndexed(newNode))
     }
-  | ArrayMap(node) =>
-    let newNode = arrayMap_assoc(node, ~key, ~value)
-    if newNode === node {
-      None
+  | ArrayMap(entries) =>
+    let idx = arrayMap_findIndex(entries, ~key)
+    if idx == -1 && A.length(entries) >= maxArrayMapEntries {
+      let newNode = bitmapIndexed_make(
+        bitpos(~hash=hasher(. key), ~shift=0),
+        [MapEntry(key, value)],
+      )
+
+      Some(bitmapIndexed_fromArrayMap(newNode, entries, ~hasher))
     } else {
-      Some(ArrayMap(newNode))
+      let newEntries = arrayMap_assocAt(entries, idx, ~key, ~value)
+      if newEntries === entries {
+        None
+      } else {
+        Some(ArrayMap(newEntries))
+      }
     }
+
   | MapEntry(_) | HashCollision(_) => assert false
   }
 }
@@ -414,5 +435,13 @@ let dissoc = (node, ~shift, ~hash, ~key) => {
       Some(ArrayMap(newNode))
     }
   | MapEntry(_) | HashCollision(_) => assert false
+  }
+}
+
+let log = node => {
+  switch node {
+  | ArrayMap(node) => Js.log(j`ArrayNode: $node`)
+  | BitmapIndexed({bitmap, _}) => Js.log(j`BitmapIndexed: ` ++ Bit.toBinString(bitmap))
+  | _ => assert false
   }
 }

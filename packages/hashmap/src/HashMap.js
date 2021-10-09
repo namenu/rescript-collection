@@ -45,6 +45,10 @@ function size(m) {
   return m.count;
 }
 
+function log(m) {
+  return Hamt.log(m.root);
+}
+
 var $$String;
 
 export {
@@ -54,6 +58,7 @@ export {
   set ,
   remove ,
   size ,
+  log ,
   
 }
 /* No side effect */

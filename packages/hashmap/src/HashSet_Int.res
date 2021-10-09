@@ -32,3 +32,7 @@ let fromArray = ar => {
   })
   s.contents
 }
+
+// let toArray = s => s.hashMap->HashMap.keysToArray
+
+let log = s => s.hashMap->HashMap.log

@@ -25,3 +25,5 @@ let assoc: (
   ~value: 'v,
 ) => option<node<'k, 'v>>
 let dissoc: (node<'k, 'v>, ~shift: int, ~hash: int, ~key: 'k) => option<node<'k, 'v>>
+
+let log: (node<'k, 'v>) => unit

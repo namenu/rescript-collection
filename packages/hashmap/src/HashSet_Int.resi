@@ -11,3 +11,7 @@ let remove: (t, int) => t
 let size: t => int
 
 let fromArray: array<int> => t
+
+// let toArray: t => array<int>
+
+let log: t => unit
