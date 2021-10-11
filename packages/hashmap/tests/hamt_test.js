@@ -59,10 +59,20 @@ function log(root) {
                     case /* BitmapIndexed */1 :
                         log("[" + idx + "] SubTrie:");
                         return p(v._0, depth + 1 | 0);
-                    case /* MapEntry */2 :
+                    case /* HashArrayMap */2 :
+                        throw {
+                              RE_EXN_ID: "Match_failure",
+                              _1: [
+                                "hamt_test.res",
+                                39,
+                                6
+                              ],
+                              Error: new Error()
+                            };
+                    case /* MapEntry */3 :
                         var match = v._0;
                         return log("[" + idx + "] MapEntry: " + match[0] + " => " + match[1]);
-                    case /* HashCollision */3 :
+                    case /* HashCollision */4 :
                         return log("[" + idx + "] HashCollision: " + v._0.entries);
                     
                   }
@@ -77,14 +87,14 @@ var m = {
     bitmap: 6,
     data: [
       {
-        TAG: /* MapEntry */2,
+        TAG: /* MapEntry */3,
         _0: [
           "Sir Robin",
           10
         ]
       },
       {
-        TAG: /* MapEntry */2,
+        TAG: /* MapEntry */3,
         _0: [
           "Sir Bedevere",
           20
@@ -148,7 +158,7 @@ var m2 = {
     bitmap: 6,
     data: [
       {
-        TAG: /* MapEntry */2,
+        TAG: /* MapEntry */3,
         _0: [
           "Sir Robin",
           10
@@ -160,14 +170,14 @@ var m2 = {
           bitmap: 5,
           data: [
             {
-              TAG: /* MapEntry */2,
+              TAG: /* MapEntry */3,
               _0: [
                 "Sir Lancelot",
                 30
               ]
             },
             {
-              TAG: /* MapEntry */2,
+              TAG: /* MapEntry */3,
               _0: [
                 "Sir Bedevere",
                 20
@@ -234,7 +244,7 @@ var m3 = {
     bitmap: 6,
     data: [
       {
-        TAG: /* MapEntry */2,
+        TAG: /* MapEntry */3,
         _0: [
           "Sir Robin",
           10
@@ -246,7 +256,7 @@ var m3 = {
           bitmap: 5,
           data: [
             {
-              TAG: /* HashCollision */3,
+              TAG: /* HashCollision */4,
               _0: {
                 hash: 146,
                 entries: [
@@ -262,7 +272,7 @@ var m3 = {
               }
             },
             {
-              TAG: /* MapEntry */2,
+              TAG: /* MapEntry */3,
               _0: [
                 "Sir Bedevere",
                 20

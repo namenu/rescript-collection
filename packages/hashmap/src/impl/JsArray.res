@@ -69,8 +69,10 @@ let cloneWithoutUnstable = (ar, idx) => {
 @send
 external forEach: (array<'a>, 'a => unit) => unit = "forEach"
 
+// TODO: optimize
 @send
 external findIndex: (array<'a>, @uncurry ('a => bool)) => int = "findIndex"
 
+// TODO: optimize
 @send
 external find: (array<'a>, @uncurry ('a => bool)) => option<'a> = "find"

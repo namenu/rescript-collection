@@ -5,14 +5,21 @@ import * as JsArray from "./JsArray.js";
 import * as Caml_obj from "@rescript/std/lib/es6/caml_obj.js";
 import * as Caml_option from "@rescript/std/lib/es6/caml_option.js";
 
-function findIndex(param, key) {
+function empty(param) {
+  return {
+          TAG: /* ArrayMap */0,
+          _0: []
+        };
+}
+
+function hashCollision_findIndex(param, key) {
   return param.entries.findIndex(function (param) {
               return Caml_obj.caml_equal(param[0], key);
             });
 }
 
 function assoc(self, key, value) {
-  var idx = findIndex(self, key);
+  var idx = hashCollision_findIndex(self, key);
   if (idx === -1) {
     return {
             hash: self.hash,
@@ -28,7 +35,7 @@ function assoc(self, key, value) {
 
 function dissoc(self, key) {
   var entries = self.entries;
-  var idx = findIndex(self, key);
+  var idx = hashCollision_findIndex(self, key);
   if (idx === -1) {
     return self;
   } else if (entries.length === 1) {
@@ -102,7 +109,58 @@ function indexOfBit(bitmap, bit) {
   return v$5 & 127;
 }
 
-function bitmapIndexed_assoc(self, shift, hasher, hash, key, value) {
+function find(node, shift, hash, key) {
+  switch (node.TAG | 0) {
+    case /* ArrayMap */0 :
+        var entries = node._0;
+        var idx = arrayMap_findIndex(entries, key);
+        if (idx === -1) {
+          return ;
+        } else {
+          return Caml_option.some(entries[idx][1]);
+        }
+    case /* BitmapIndexed */1 :
+        var param = node._0;
+        var bitmap = param.bitmap;
+        var bit = bitpos(hash, shift);
+        var match = bitmap & bit;
+        if (match === 0) {
+          return ;
+        }
+        var idx$1 = indexOfBit(bitmap, bit);
+        var child = param.data[idx$1];
+        return find(child, shift, hash, key);
+    case /* HashArrayMap */2 :
+        var param$1 = node._0;
+        var idx$2 = mask(hash, shift);
+        var node$1 = param$1.nodes[idx$2];
+        if (node$1 !== undefined) {
+          return find(node$1, shift, hash, key);
+        } else {
+          return ;
+        }
+    case /* MapEntry */3 :
+        var match$1 = node._0;
+        if (Caml_obj.caml_equal(match$1[0], key)) {
+          return Caml_option.some(match$1[1]);
+        } else {
+          return ;
+        }
+    case /* HashCollision */4 :
+        var param$2 = node._0;
+        var match$2 = param$2.entries.find(function (param) {
+              return Caml_obj.caml_equal(param[0], key);
+            });
+        if (match$2 !== undefined) {
+          return Caml_option.some(match$2[1]);
+        } else {
+          return ;
+        }
+    
+  }
+}
+
+function bitmapIndexed_assocInternal(self, shift, hasher, hash, key, value) {
   var data = self.data;
   var bitmap = self.bitmap;
   var bit = bitpos(hash, shift);
@@ -112,7 +170,7 @@ function bitmapIndexed_assoc(self, shift, hasher, hash, key, value) {
     return {
             bitmap: bitmap | bit,
             data: JsArray.cloneAndInsert(data, idx, {
-                  TAG: /* MapEntry */2,
+                  TAG: /* MapEntry */3,
                   _0: [
                     key,
                     value
@@ -122,19 +180,9 @@ function bitmapIndexed_assoc(self, shift, hasher, hash, key, value) {
   }
   var child = data[idx];
   switch (child.TAG | 0) {
-    case /* ArrayMap */0 :
-        throw {
-              RE_EXN_ID: "Match_failure",
-              _1: [
-                "Hamt.res",
-                212,
-                4
-              ],
-              Error: new Error()
-            };
     case /* BitmapIndexed */1 :
         var trie = child._0;
-        var newChild = bitmapIndexed_assoc(trie, shift + 5 | 0, hasher, hash, key, value);
+        var newChild = bitmapIndexed_assocInternal(trie, shift + 5 | 0, hasher, hash, key, value);
         if (newChild === trie) {
           return self;
         } else {
@@ -146,7 +194,18 @@ function bitmapIndexed_assoc(self, shift, hasher, hash, key, value) {
                       })
                 };
         }
-    case /* MapEntry */2 :
+    case /* ArrayMap */0 :
+    case /* HashArrayMap */2 :
+        throw {
+              RE_EXN_ID: "Assert_failure",
+              _1: [
+                "Hamt.res",
+                339,
+                11
+              ],
+              Error: new Error()
+            };
+    case /* MapEntry */3 :
         var match$1 = child._0;
         var v = match$1[1];
         var k = match$1[0];
@@ -157,10 +216,10 @@ function bitmapIndexed_assoc(self, shift, hasher, hash, key, value) {
             return {
                     bitmap: bitmap,
                     data: JsArray.cloneAndSet(data, idx, {
-                          TAG: /* MapEntry */2,
+                          TAG: /* MapEntry */3,
                           _0: [
-                            k,
-                            v
+                            key,
+                            value
                           ]
                         })
                   };
@@ -171,7 +230,7 @@ function bitmapIndexed_assoc(self, shift, hasher, hash, key, value) {
                 bitmap: bitmap,
                 data: JsArray.cloneAndSet(data, idx, leaf)
               };
-    case /* HashCollision */3 :
+    case /* HashCollision */4 :
         var node = child._0;
         if (node.hash === hash) {
           var newChild$1 = assoc(node, key, value);
@@ -181,16 +240,16 @@ function bitmapIndexed_assoc(self, shift, hasher, hash, key, value) {
             return {
                     bitmap: bitmap,
                     data: JsArray.cloneAndSet(data, idx, {
-                          TAG: /* HashCollision */3,
+                          TAG: /* HashCollision */4,
                           _0: newChild$1
                         })
                   };
           }
         }
-        var newChild$2 = bitmapIndexed_assoc({
+        var newChild$2 = bitmapIndexed_assocInternal({
               bitmap: bitpos(node.hash, shift + 5 | 0),
               data: [{
-                  TAG: /* HashCollision */3,
+                  TAG: /* HashCollision */4,
                   _0: node
                 }]
             }, shift + 5 | 0, hasher, hash, key, value);
@@ -208,7 +267,7 @@ function bitmapIndexed_assoc(self, shift, hasher, hash, key, value) {
 function makeNode(shift, hasher, h1, k1, v1, h2, k2, v2) {
   if (h1 === h2) {
     return {
-            TAG: /* HashCollision */3,
+            TAG: /* HashCollision */4,
             _0: {
               hash: h1,
               entries: [
@@ -226,25 +285,12 @@ function makeNode(shift, hasher, h1, k1, v1, h2, k2, v2) {
   } else {
     return {
             TAG: /* BitmapIndexed */1,
-            _0: bitmapIndexed_assoc(bitmapIndexed_assoc({
+            _0: bitmapIndexed_assocInternal(bitmapIndexed_assocInternal({
                       bitmap: 0,
                       data: []
                     }, shift, hasher, h1, k1, v1), shift, hasher, h2, k2, v2)
           };
   }
-}
-
-function bitmapIndexed_fromArrayMap(node, entries, hasher) {
-  var node$1 = node;
-  for(var i = 0 ,i_finish = entries.length; i < i_finish; ++i){
-    var match = entries[i];
-    var k = match[0];
-    node$1 = bitmapIndexed_assoc(node$1, 0, hasher, hasher(k), k, match[1]);
-  }
-  return {
-          TAG: /* BitmapIndexed */1,
-          _0: node$1
-        };
 }
 
 function bitmapIndexed_dissoc(self, shift, hash, key) {
@@ -258,16 +304,6 @@ function bitmapIndexed_dissoc(self, shift, hash, key) {
   var idx = indexOfBit(bitmap, bit);
   var child = data[idx];
   switch (child.TAG | 0) {
-    case /* ArrayMap */0 :
-        throw {
-              RE_EXN_ID: "Match_failure",
-              _1: [
-                "Hamt.res",
-                312,
-                4
-              ],
-              Error: new Error()
-            };
     case /* BitmapIndexed */1 :
         var trie = child._0;
         var newChild = bitmapIndexed_dissoc(trie, shift + 5 | 0, hash, key);
@@ -286,13 +322,24 @@ function bitmapIndexed_dissoc(self, shift, hash, key) {
         } else {
           return unset(self, bit, idx);
         }
-    case /* MapEntry */2 :
+    case /* ArrayMap */0 :
+    case /* HashArrayMap */2 :
+        throw {
+              RE_EXN_ID: "Assert_failure",
+              _1: [
+                "Hamt.res",
+                411,
+                11
+              ],
+              Error: new Error()
+            };
+    case /* MapEntry */3 :
         if (Caml_obj.caml_equal(child._0[0], key)) {
           return unset(self, bit, idx);
         } else {
           return self;
         }
-    case /* HashCollision */3 :
+    case /* HashCollision */4 :
         var node = child._0;
         var newChild$1 = dissoc(node, key);
         if (newChild$1 !== undefined) {
@@ -302,7 +349,7 @@ function bitmapIndexed_dissoc(self, shift, hash, key) {
             return {
                     bitmap: bitmap,
                     data: JsArray.cloneAndSet(data, idx, {
-                          TAG: /* HashCollision */3,
+                          TAG: /* HashCollision */4,
                           _0: newChild$1
                         })
                   };
@@ -326,96 +373,15 @@ function unset(param, bit, idx) {
   }
 }
 
-function empty(param) {
-  return {
-          TAG: /* ArrayMap */0,
-          _0: []
-        };
-}
-
-function find(node, shift, hash, key) {
-  switch (node.TAG | 0) {
-    case /* ArrayMap */0 :
-        var entries = node._0;
-        var idx = arrayMap_findIndex(entries, key);
-        if (idx === -1) {
-          return ;
-        } else {
-          return Caml_option.some(entries[idx][1]);
-        }
-    case /* BitmapIndexed */1 :
-        var _param = node._0;
-        var _shift = shift;
-        while(true) {
-          var param = _param;
-          var shift$1 = _shift;
-          var bitmap = param.bitmap;
-          var bit = bitpos(hash, shift$1);
-          var match = bitmap & bit;
-          if (match === 0) {
-            return ;
-          }
-          var idx$1 = indexOfBit(bitmap, bit);
-          var child = param.data[idx$1];
-          switch (child.TAG | 0) {
-            case /* ArrayMap */0 :
-                throw {
-                      RE_EXN_ID: "Match_failure",
-                      _1: [
-                        "Hamt.res",
-                        189,
-                        4
-                      ],
-                      Error: new Error()
-                    };
-            case /* BitmapIndexed */1 :
-                _shift = shift$1 + 5 | 0;
-                _param = child._0;
-                continue ;
-            case /* MapEntry */2 :
-                var match$1 = child._0;
-                if (Caml_obj.caml_equal(match$1[0], key)) {
-                  return Caml_option.some(match$1[1]);
-                } else {
-                  return ;
-                }
-            case /* HashCollision */3 :
-                var param$1 = child._0;
-                var match$2 = param$1.entries.find(function (param) {
-                      return Caml_obj.caml_equal(param[0], key);
-                    });
-                if (match$2 !== undefined) {
-                  return Caml_option.some(match$2[1]);
-                } else {
-                  return ;
-                }
-            
-          }
-        };
-    case /* MapEntry */2 :
-    case /* HashCollision */3 :
-        throw {
-              RE_EXN_ID: "Assert_failure",
-              _1: [
-                "Hamt.res",
-                377,
-                38
-              ],
-              Error: new Error()
-            };
-    
-  }
-}
-
 function assoc$1(node, shift, hasher, hash, key, value) {
   switch (node.TAG | 0) {
     case /* ArrayMap */0 :
         var entries = node._0;
         var idx = arrayMap_findIndex(entries, key);
         if (idx === -1 && entries.length >= 8) {
-          var newNode_bitmap = bitpos(hasher(key), 0);
+          var newNode_bitmap = bitpos(hasher(key), shift);
           var newNode_data = [{
-              TAG: /* MapEntry */2,
+              TAG: /* MapEntry */3,
               _0: [
                 key,
                 value
@@ -425,7 +391,7 @@ function assoc$1(node, shift, hasher, hash, key, value) {
             bitmap: newNode_bitmap,
             data: newNode_data
           };
-          return bitmapIndexed_fromArrayMap(newNode, entries, hasher);
+          return bitmapIndexed_fromArrayMap(newNode, entries, shift, hasher);
         }
         var newEntries = arrayMap_assocAt(entries, idx, key, value);
         if (newEntries === entries) {
@@ -437,29 +403,113 @@ function assoc$1(node, shift, hasher, hash, key, value) {
                 };
         }
     case /* BitmapIndexed */1 :
-        var node$1 = node._0;
-        var newNode$1 = bitmapIndexed_assoc(node$1, shift, hasher, hash, key, value);
-        if (newNode$1 === node$1) {
+        var param = node._0;
+        var data = param.data;
+        var bitmap = param.bitmap;
+        var bit = bitpos(hash, shift);
+        var idx$1 = indexOfBit(bitmap, bit);
+        var match = bitmap & bit;
+        if (match === 0) {
+          return {
+                  TAG: /* BitmapIndexed */1,
+                  _0: {
+                    bitmap: bitmap | bit,
+                    data: JsArray.cloneAndInsert(data, idx$1, {
+                          TAG: /* MapEntry */3,
+                          _0: [
+                            key,
+                            value
+                          ]
+                        })
+                  }
+                };
+        }
+        var child = data[idx$1];
+        var node$1 = assoc$1(child, shift + 5 | 0, hasher, hash, key, value);
+        if (node$1 !== undefined) {
+          return {
+                  TAG: /* BitmapIndexed */1,
+                  _0: {
+                    bitmap: bitmap,
+                    data: JsArray.cloneAndSet(data, idx$1, node$1)
+                  }
+                };
+        } else {
+          return ;
+        }
+    case /* HashArrayMap */2 :
+        var param$1 = node._0;
+        var nodes = param$1.nodes;
+        var idx$2 = mask(hash, shift);
+        var node$2 = nodes[idx$2];
+        if (node$2 !== undefined) {
+          return assoc$1(node$2, shift + 5 | 0, hasher, hash, key, value);
+        } else {
+          return {
+                  TAG: /* HashArrayMap */2,
+                  _0: {
+                    count: param$1.count + 1 | 0,
+                    nodes: JsArray.cloneAndSet(nodes, idx$2, {
+                          TAG: /* MapEntry */3,
+                          _0: [
+                            key,
+                            value
+                          ]
+                        })
+                  }
+                };
+        }
+    case /* MapEntry */3 :
+        var param$2 = node._0;
+        var v = param$2[1];
+        var k = param$2[0];
+        if (Caml_obj.caml_equal(k, key)) {
+          if (Caml_obj.caml_equal(v, value)) {
+            return ;
+          } else {
+            return {
+                    TAG: /* MapEntry */3,
+                    _0: [
+                      key,
+                      value
+                    ]
+                  };
+          }
+        } else {
+          return makeNode(shift + 5 | 0, hasher, hasher(k), k, v, hash, key, value);
+        }
+    case /* HashCollision */4 :
+        var self = node._0;
+        var match$1 = hashCollision_findIndex(self, key);
+        if (match$1 !== -1) {
           return ;
         } else {
           return {
-                  TAG: /* BitmapIndexed */1,
-                  _0: newNode$1
+                  TAG: /* HashCollision */4,
+                  _0: {
+                    hash: self.hash,
+                    entries: JsArray.cloneAndAdd(self.entries, [
+                          key,
+                          value
+                        ])
+                  }
                 };
         }
-    case /* MapEntry */2 :
-    case /* HashCollision */3 :
-        throw {
-              RE_EXN_ID: "Assert_failure",
-              _1: [
-                "Hamt.res",
-                411,
-                38
-              ],
-              Error: new Error()
-            };
     
   }
+}
+
+function bitmapIndexed_fromArrayMap(node, entries, shift, hasher) {
+  var node$1 = node;
+  for(var i = 0 ,i_finish = entries.length; i < i_finish; ++i){
+    var match = entries[i];
+    var k = match[0];
+    node$1 = bitmapIndexed_assocInternal(node$1, shift, hasher, hasher(k), k, match[1]);
+  }
+  return {
+          TAG: /* BitmapIndexed */1,
+          _0: node$1
+        };
 }
 
 function dissoc$1(node, shift, hash, key) {
@@ -493,18 +543,16 @@ function dissoc$1(node, shift, hash, key) {
                   _0: []
                 };
         }
-    case /* MapEntry */2 :
-    case /* HashCollision */3 :
-        throw {
-              RE_EXN_ID: "Assert_failure",
-              _1: [
-                "Hamt.res",
-                437,
-                38
-              ],
-              Error: new Error()
-            };
-    
+    default:
+      throw {
+            RE_EXN_ID: "Assert_failure",
+            _1: [
+              "Hamt.res",
+              585,
+              4
+            ],
+            Error: new Error()
+          };
   }
 }
 
@@ -516,18 +564,16 @@ function log(node) {
     case /* BitmapIndexed */1 :
         console.log("BitmapIndexed: " + Bit.toBinString(node._0.bitmap));
         return ;
-    case /* MapEntry */2 :
-    case /* HashCollision */3 :
-        throw {
-              RE_EXN_ID: "Assert_failure",
-              _1: [
-                "Hamt.res",
-                445,
-                9
-              ],
-              Error: new Error()
-            };
-    
+    default:
+      throw {
+            RE_EXN_ID: "Assert_failure",
+            _1: [
+              "Hamt.res",
+              593,
+              9
+            ],
+            Error: new Error()
+          };
   }
 }
 
