@@ -23,9 +23,11 @@ let maskBits = 0x01F // 31bits
 // bit가 1이면 은 해당 인덱스의 자식 노드가 있는지 여부를 나타냄
 
 type rec node<'k, 'v> =
+  | ArrayMap(arrayMapNode<'k, 'v>)
   | BitmapIndexed(bitmapIndexedNode<'k, 'v>)
   | MapEntry(mapEntry<'k, 'v>)
   | HashCollision(hashCollisionNode<'k, 'v>)
+and arrayMapNode<'k, 'v> = array<('k, 'v)>
 and bitmapIndexedNode<'k, 'v> = {
   bitmap: int,
   data: array<node<'k, 'v>>,
@@ -83,10 +85,61 @@ module HashCollision = {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// ArrayMapNode
+////////////////////////////////////////////////////////////////////////////////
+let arrayMap_findIndex = (entries, ~key) => {
+  let len = A.length(entries)
+  let rec findAux = i => {
+    if i < len {
+      if fst(A.get(entries, i)) == key {
+        i
+      } else {
+        findAux(i + 1)
+      }
+    } else {
+      -1
+    }
+  }
+  findAux(0)
+}
+
+let arrayMap_find = (entries, ~key) => {
+  let idx = arrayMap_findIndex(entries, ~key)
+  if idx == -1 {
+    None
+  } else {
+    Some(snd(A.get(entries, idx)))
+  }
+}
+
+let arrayMap_assoc = (entries, ~key, ~value) => {
+  let idx = arrayMap_findIndex(entries, ~key)
+  // exists? and value is the same
+  if idx != -1 {
+    if snd(A.get(entries, idx)) === value {
+      entries
+    } else {
+      A.cloneAndSet(entries, idx, (key, value))
+    }
+  } else {
+    A.cloneAndAdd(entries, (key, value))
+  }
+}
+
+let arrayMap_dissoc = (entries, ~key) => {
+  let idx = arrayMap_findIndex(entries, ~key)
+  if idx == -1 {
+    entries
+  } else {
+    A.cloneWithoutUnstable(entries, idx)
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////
 // BitmapIndexedNode
 ////////////////////////////////////////////////////////////////////////////////
 
-let makeBitmapIndexed = (bitmap, data) => {
+let bitmapIndexed_make = (bitmap, data) => {
   bitmap: bitmap,
   data: data,
 }
@@ -124,7 +177,7 @@ let indexOfBit = (bitmap, bit) => {
 //   bitmap = 0b0110
 //   hash   = 0b0010
 //   index  = 1
-let rec findBitmapIndexed = ({bitmap, data}, ~shift, ~hash, ~key): option<'v> => {
+let rec bitmapIndexed_find = ({bitmap, data}, ~shift, ~hash, ~key): option<'v> => {
   let bit = bitpos(~hash, ~shift)
 
   switch bitmap->land(bit) {
@@ -134,14 +187,14 @@ let rec findBitmapIndexed = ({bitmap, data}, ~shift, ~hash, ~key): option<'v> =>
     let idx = indexOfBit(bitmap, bit)
     let child = data->Js.Array2.unsafe_get(idx)
     switch child {
-    | BitmapIndexed(trie) => findBitmapIndexed(trie, ~shift=shift + numBits, ~hash, ~key)
+    | BitmapIndexed(trie) => bitmapIndexed_find(trie, ~shift=shift + numBits, ~hash, ~key)
     | MapEntry(k, v) => k == key ? Some(v) : None
     | HashCollision(node) => HashCollision.find(node, ~key)
     }
   }
 }
 
-let rec assocBitmapIndexed = ({bitmap, data} as self, ~shift, ~hasher, ~hash, ~key, ~value) => {
+let rec bitmapIndexed_assoc = ({bitmap, data} as self, ~shift, ~hasher, ~hash, ~key, ~value) => {
   let bit = bitpos(~hash, ~shift)
   let idx = indexOfBit(bitmap, bit)
 
@@ -158,7 +211,7 @@ let rec assocBitmapIndexed = ({bitmap, data} as self, ~shift, ~hasher, ~hash, ~k
     let child = data->A.get(idx)
     switch child {
     | BitmapIndexed(trie) =>
-      let newChild = assocBitmapIndexed(trie, ~shift=shift + numBits, ~hasher, ~hash, ~key, ~value)
+      let newChild = bitmapIndexed_assoc(trie, ~shift=shift + numBits, ~hasher, ~hash, ~key, ~value)
       if newChild === trie {
         // already exists
         self
@@ -205,10 +258,10 @@ let rec assocBitmapIndexed = ({bitmap, data} as self, ~shift, ~hasher, ~hash, ~k
         }
       } else {
         let newChild =
-          makeBitmapIndexed(
+          bitmapIndexed_make(
             bitpos(~hash=node.hash, ~shift=shift + numBits),
             [HashCollision(node)],
-          )->assocBitmapIndexed(~shift=shift + numBits, ~hasher, ~hash, ~key, ~value)
+          )->bitmapIndexed_assoc(~shift=shift + numBits, ~hasher, ~hash, ~key, ~value)
         {
           bitmap: bitmap,
           data: A.cloneAndSet(data, idx, BitmapIndexed(newChild)),
@@ -222,9 +275,9 @@ and makeNode = (~shift, ~hasher, h1, k1, v1, h2, k2, v2): node<'k, 'v> => {
     HashCollision(HashCollision.make(h1, [(k1, v1), (k2, v2)]))
   } else {
     BitmapIndexed(
-      makeBitmapIndexed(0, [])
-      ->assocBitmapIndexed(~shift, ~hasher, ~hash=h1, ~key=k1, ~value=v1)
-      ->assocBitmapIndexed(~shift, ~hasher, ~hash=h2, ~key=k2, ~value=v2),
+      bitmapIndexed_make(0, [])
+      ->bitmapIndexed_assoc(~shift, ~hasher, ~hash=h1, ~key=k1, ~value=v1)
+      ->bitmapIndexed_assoc(~shift, ~hasher, ~hash=h2, ~key=k2, ~value=v2),
     )
   }
 }
@@ -236,7 +289,7 @@ and makeNode = (~shift, ~hasher, h1, k1, v1, h2, k2, v2): node<'k, 'v> => {
  * 삭제할 key가 없을 경우에도 Some(self)를 반환
  * Node가 삭제되어야 할 경우 None 반환
  */
-let rec dissocBitmapIndexed = ({bitmap, data} as self, ~shift, ~hash, ~key) => {
+let rec bitmapIndexed_dissoc = ({bitmap, data} as self, ~shift, ~hash, ~key) => {
   let bit = bitpos(~hash, ~shift)
 
   switch bitmap->land(bit) {
@@ -248,7 +301,7 @@ let rec dissocBitmapIndexed = ({bitmap, data} as self, ~shift, ~hash, ~key) => {
     let child = data->A.get(idx)
     switch child {
     | BitmapIndexed(trie) =>
-      switch dissocBitmapIndexed(trie, ~shift=shift + numBits, ~hash, ~key) {
+      switch bitmapIndexed_dissoc(trie, ~shift=shift + numBits, ~hash, ~key) {
       | Some(newChild) =>
         if newChild === trie {
           // key doesn't exist
@@ -302,12 +355,16 @@ and unset = ({bitmap, data}, bit, idx) => {
   }
 }
 
-let empty = () => BitmapIndexed(makeBitmapIndexed(0, []))
+let empty = () => {
+  ArrayMap([])
+  // BitmapIndexed(makeBitmapIndexed(0, []))
+}
 
 let find = (node, ~shift, ~hash, ~key) => {
   switch node {
-  | BitmapIndexed(node) => findBitmapIndexed(node, ~shift, ~hash, ~key)
-  | _ => assert false
+  | BitmapIndexed(node) => bitmapIndexed_find(node, ~shift, ~hash, ~key)
+  | ArrayMap(node) => arrayMap_find(node, ~key)
+  | MapEntry(_) | HashCollision(_) => assert false
   }
 }
 
@@ -317,13 +374,20 @@ let find = (node, ~shift, ~hash, ~key) => {
 let assoc = (node, ~shift, ~hasher, ~hash, ~key, ~value) => {
   switch node {
   | BitmapIndexed(node) =>
-    let newNode = assocBitmapIndexed(node, ~shift, ~hasher, ~hash, ~key, ~value)
+    let newNode = bitmapIndexed_assoc(node, ~shift, ~hasher, ~hash, ~key, ~value)
     if newNode === node {
       None
     } else {
       Some(BitmapIndexed(newNode))
     }
-  | _ => assert false
+  | ArrayMap(node) =>
+    let newNode = arrayMap_assoc(node, ~key, ~value)
+    if newNode === node {
+      None
+    } else {
+      Some(ArrayMap(newNode))
+    }
+  | MapEntry(_) | HashCollision(_) => assert false
   }
 }
 
@@ -333,7 +397,7 @@ let assoc = (node, ~shift, ~hasher, ~hash, ~key, ~value) => {
 let dissoc = (node, ~shift, ~hash, ~key) => {
   switch node {
   | BitmapIndexed(node) =>
-    switch dissocBitmapIndexed(node, ~shift, ~hash, ~key) {
+    switch bitmapIndexed_dissoc(node, ~shift, ~hash, ~key) {
     | Some(newNode) =>
       if newNode === node {
         None
@@ -342,6 +406,13 @@ let dissoc = (node, ~shift, ~hash, ~key) => {
       }
     | None => Some(empty())
     }
-  | _ => assert false
+  | ArrayMap(node) =>
+    let newNode = arrayMap_dissoc(node, ~key)
+    if newNode === node {
+      None
+    } else {
+      Some(ArrayMap(newNode))
+    }
+  | MapEntry(_) | HashCollision(_) => assert false
   }
 }

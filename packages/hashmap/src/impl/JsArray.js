@@ -42,6 +42,18 @@ function cloneWithout(ar, i) {
   return newAr;
 }
 
+function cloneWithoutUnstable(ar, i) {
+  var len = ar.length;
+  if (len === 1) {
+    return [];
+  }
+  var newAr = Array(ar.length - 1 | 0);
+  if (i !== (len - 1 | 0)) {
+    newAr[i] = ar[len - 1 | 0];
+  }
+  return newAr;
+}
+
 export {
   slice ,
   blit ,
@@ -49,6 +61,7 @@ export {
   cloneAndAdd ,
   cloneAndInsert ,
   cloneWithout ,
+  cloneWithoutUnstable ,
   
 }
 /* No side effect */

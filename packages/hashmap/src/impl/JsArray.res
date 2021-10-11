@@ -51,6 +51,19 @@ let cloneWithout = (ar, i) => {
   newAr
 }
 
+let cloneWithoutUnstable = (ar, i) => {
+  let len = length(ar)
+  if len == 1 {
+    []
+  } else {
+    let newAr = make(length(ar) - 1)
+    if i != len - 1 {
+      set(newAr, i, get(ar, len - 1))
+    }
+    newAr
+  }
+}
+
 @send
 external forEach: (array<'a>, 'a => unit) => unit = "forEach"
 

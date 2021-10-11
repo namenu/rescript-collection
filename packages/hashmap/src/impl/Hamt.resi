@@ -1,7 +1,9 @@
 type rec node<'k, 'v> =
+  | ArrayMap(arrayMapNode<'k, 'v>)
   | BitmapIndexed(bitmapIndexedNode<'k, 'v>)
   | MapEntry(mapEntry<'k, 'v>)
   | HashCollision(hashCollisionNode<'k, 'v>)
+and arrayMapNode<'k, 'v> = array<('k, 'v)>
 and bitmapIndexedNode<'k, 'v> = {
   bitmap: int,
   data: array<node<'k, 'v>>,
