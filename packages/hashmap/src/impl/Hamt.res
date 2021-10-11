@@ -160,11 +160,6 @@ let arrayMap_dissoc = (entries, ~key) => {
 // BitmapIndexedNode
 ////////////////////////////////////////////////////////////////////////////////
 
-let bitmapIndexed_make = (bitmap, data) => {
-  bitmap: bitmap,
-  data: data,
-}
-
 // Hacker's Delight, COUNTING BITS
 let ctpop = v => {
   let v = v - v->lsr(1)->land(0x55555555)
@@ -193,11 +188,16 @@ let indexOfBit = (bitmap, bit) => {
   bitmap->land(bit - 1)->ctpop
 }
 
+let bitmapIndexed_make = (~shift, ~hash, ~key, ~value) => {
+  bitmap: bitpos(~hash, ~shift),
+  data: [MapEntry(key, value)],
+}
+
 /**
  * hash에 해당하는 bitpos를 통해 data 배열에서의 인덱스를 반환한다.
  * 없을 경우 -1
  */
-let bitmapIndexed_findIndex = ({bitmap, data}, bit) => {
+let bitmapIndexed_findIndex = ({bitmap}, bit) => {
   switch bitmap->land(bit) {
   | 0 => -1
   | _ => indexOfBit(bitmap, bit)
@@ -349,7 +349,7 @@ let rec assoc = (node, ~shift, ~hasher, ~hash, ~key, ~value) => {
   | ArrayMap(entries) =>
     let idx = arrayMap_findIndex(entries, ~key)
     if idx == -1 && A.length(entries) >= maxArrayMapEntries {
-      let newNode = bitmapIndexed_make(bitpos(~hash=hasher(. key), ~shift), [MapEntry(key, value)])
+      let newNode = bitmapIndexed_make(~shift, ~hash=hasher(. key), ~key, ~value)
       Some(bitmapIndexed_fromArrayMap(newNode, entries, ~shift, ~hasher))
     } else {
       let newEntries = arrayMap_assocAt(entries, idx, ~key, ~value)
@@ -448,7 +448,7 @@ and mapEntry_assoc = ((k, v), ~shift, ~hasher, ~hash, ~key, ~value) => {
     if h1 == hash {
       Some(HashCollision(hashCollision_make(h1, [(k, v), (key, value)])))
     } else {
-      let node = bitmapIndexed_make(bitpos(~hash=h1, ~shift), [MapEntry(k, v)])
+      let node = bitmapIndexed_make(~shift, ~hash=h1, ~key=k, ~value=v)
       node->bitmapIndexed_assoc(~shift, ~hasher, ~hash, ~key, ~value)
     }
   }

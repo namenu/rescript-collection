@@ -96,6 +96,19 @@ function indexOfBit(bitmap, bit) {
   return v$5 & 127;
 }
 
+function bitmapIndexed_make(shift, hash, key, value) {
+  return {
+          bitmap: bitpos(hash, shift),
+          data: [{
+              TAG: /* MapEntry */3,
+              _0: [
+                key,
+                value
+              ]
+            }]
+        };
+}
+
 function bitmapIndexed_findIndex(param, bit) {
   var bitmap = param.bitmap;
   var match = bitmap & bit;
@@ -284,18 +297,7 @@ function assoc(node, shift, hasher, hash, key, value) {
         var entries = node._0;
         var idx = arrayMap_findIndex(entries, key);
         if (idx === -1 && entries.length >= 8) {
-          var newNode_bitmap = bitpos(hasher(key), shift);
-          var newNode_data = [{
-              TAG: /* MapEntry */3,
-              _0: [
-                key,
-                value
-              ]
-            }];
-          var newNode = {
-            bitmap: newNode_bitmap,
-            data: newNode_data
-          };
+          var newNode = bitmapIndexed_make(shift, hasher(key), key, value);
           return bitmapIndexed_fromArrayMap(newNode, entries, shift, hasher);
         }
         var newEntries = arrayMap_assocAt(entries, idx, key, value);
@@ -385,18 +387,7 @@ function assoc(node, shift, hasher, hash, key, value) {
                   }
                 };
         }
-        var node_bitmap = bitpos(h1, shift);
-        var node_data = [{
-            TAG: /* MapEntry */3,
-            _0: [
-              k,
-              v
-            ]
-          }];
-        var node$3 = {
-          bitmap: node_bitmap,
-          data: node_data
-        };
+        var node$3 = bitmapIndexed_make(shift, h1, k, v);
         return bitmapIndexed_assoc(node$3, shift, hasher, hash, key, value);
     case /* HashCollision */4 :
         var self = node._0;
