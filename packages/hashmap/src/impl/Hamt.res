@@ -15,6 +15,7 @@
 module A = JsArray
 
 let maxArrayMapEntries = 8
+let maxBitmapIndexedSize = 16
 
 let numBits = 5
 let maskBits = 0x01F // 31bits
@@ -90,19 +91,6 @@ let hashCollision_assoc = ({entries} as self, ~key, ~value) => {
 
 module HashCollision = {
   type t<'k, 'v> = hashCollisionNode<'k, 'v>
-
-  let assoc = ({entries} as self: t<'k, 'v>, ~key: 'k, ~value: 'v): t<'k, 'v> => {
-    // assert (self.hash == hash)
-    let idx = hashCollision_findIndex(self, ~key)
-    if idx == -1 {
-      {
-        ...self,
-        entries: A.cloneAndAdd(entries, (key, value)),
-      }
-    } else {
-      self
-    }
-  }
 
   /**
    * 값이 2개 -> 1개가 된다면 MapEntry로도 볼 수 있지만, 로직의 간소화를 위해 HashCollisionNode로 일반화하였음
@@ -205,6 +193,17 @@ let indexOfBit = (bitmap, bit) => {
   bitmap->land(bit - 1)->ctpop
 }
 
+/**
+ * hash에 해당하는 bitpos를 통해 data 배열에서의 인덱스를 반환한다.
+ * 없을 경우 -1
+ */
+let bitmapIndexed_findIndex = ({bitmap, data}, bit) => {
+  switch bitmap->land(bit) {
+  | 0 => -1
+  | _ => indexOfBit(bitmap, bit)
+  }
+}
+
 let rec find = (node, ~shift, ~hash, ~key) => {
   switch node {
   | BitmapIndexed(node) => bitmapIndexed_find(node, ~shift, ~hash, ~key)
@@ -236,119 +235,6 @@ and hashArrayMap_find = ({nodes}, ~shift, ~hash, ~key) => {
   switch A.get(nodes, idx) {
   | None => None
   | Some(node) => find(node, ~shift, ~hash, ~key)
-  }
-}
-
-let bitmapIndexed_childAt = ({bitmap, data} as self, ~bit) => {
-  switch bitmap->land(bit) {
-  | 0 => None
-  | _ =>
-    let idx = indexOfBit(bitmap, bit)
-    let child = data->Js.Array2.unsafe_get(idx)
-    Some(child)
-  }
-}
-
-let rec bitmapIndexed_assocInternal = (
-  {bitmap, data} as self,
-  ~shift,
-  ~hasher,
-  ~hash,
-  ~key,
-  ~value,
-) => {
-  let bit = bitpos(~hash, ~shift)
-  let idx = indexOfBit(bitmap, bit)
-
-  // has child at idx?
-  switch bitmap->land(bit) {
-  | 0 => // insert here!
-    {
-      bitmap: bitmap->lor(bit),
-      data: A.cloneAndInsert(data, idx, MapEntry(key, value)),
-    }
-  | _ =>
-    // copy new path then recursively call assoc
-    let child = data->A.get(idx)
-    switch child {
-    | BitmapIndexed(trie) =>
-      let newChild = bitmapIndexed_assocInternal(
-        trie,
-        ~shift=shift + numBits,
-        ~hasher,
-        ~hash,
-        ~key,
-        ~value,
-      )
-      if newChild === trie {
-        // already exists
-        self
-      } else {
-        {
-          bitmap: bitmap,
-          data: A.cloneAndSet(data, idx, BitmapIndexed(newChild)),
-        }
-      }
-
-    | MapEntry(k, v) =>
-      if k == key {
-        if v == value {
-          // already exists
-          self
-        } else {
-          // only value updated
-          {
-            bitmap: bitmap,
-            data: A.cloneAndSet(data, idx, MapEntry(key, value)),
-          }
-        }
-      } else {
-        // extend a leaf, change child into subtrie
-        let leaf = makeNode(~shift=shift + numBits, ~hasher, hasher(. k), k, v, hash, key, value)
-        {
-          bitmap: bitmap,
-          data: A.cloneAndSet(data, idx, leaf),
-        }
-      }
-
-    | HashCollision(node) =>
-      if node.hash == hash {
-        let newChild = HashCollision.assoc(node, ~key, ~value)
-        if newChild === node {
-          // already exists
-          self
-        } else {
-          // assert (A.length(newChild.entries) == A.length(node.entries) + 1)
-          {
-            bitmap: bitmap,
-            data: A.cloneAndSet(data, idx, HashCollision(newChild)),
-          }
-        }
-      } else {
-        let newChild =
-          bitmapIndexed_make(
-            bitpos(~hash=node.hash, ~shift=shift + numBits),
-            [HashCollision(node)],
-          )->bitmapIndexed_assocInternal(~shift=shift + numBits, ~hasher, ~hash, ~key, ~value)
-        {
-          bitmap: bitmap,
-          data: A.cloneAndSet(data, idx, BitmapIndexed(newChild)),
-        }
-      }
-
-    | _ => assert false
-    }
-  }
-}
-and makeNode = (~shift, ~hasher, h1, k1, v1, h2, k2, v2): node<'k, 'v> => {
-  if h1 == h2 {
-    HashCollision(hashCollision_make(h1, [(k1, v1), (k2, v2)]))
-  } else {
-    BitmapIndexed(
-      bitmapIndexed_make(0, [])
-      ->bitmapIndexed_assocInternal(~shift, ~hasher, ~hash=h1, ~key=k1, ~value=v1)
-      ->bitmapIndexed_assocInternal(~shift, ~hasher, ~hash=h2, ~key=k2, ~value=v2),
-    )
   }
 }
 
@@ -413,7 +299,7 @@ let rec bitmapIndexed_dissoc = ({bitmap, data} as self, ~shift, ~hash, ~key) => 
   }
 }
 /**
- * 항상 idx에 해당하는 값이 있다고 가정
+ * Assume that there's always a value at `idx`
  */
 and unset = ({bitmap, data}, bit, idx) => {
   if bitmap == bit {
@@ -428,7 +314,7 @@ and unset = ({bitmap, data}, bit, idx) => {
 }
 
 let rec unpack = (bitmap, packed, i, unpacked, j) => {
-  if bitmap !== 0 {
+  if bitmap === 0 {
     i
   } else if bitmap->land(1) == 1 {
     A.set(unpacked, j, Some(A.get(packed, i)))
@@ -438,45 +324,32 @@ let rec unpack = (bitmap, packed, i, unpacked, j) => {
   }
 }
 
-let hashArrayMap_fromBitmapIndexed = ({bitmap, data}) => {
+let hashArrayMap_fromBitmapIndexed = ({bitmap, data}, ~shift, ~hash, ~key, ~value) => {
   let unpacked = A.make(32)
   let count = unpack(bitmap, data, 0, unpacked, 0)
-  HashArrayMap({count: count, nodes: unpacked})
+
+  let idx = mask(~hash, ~shift)
+  // assert (A.get(unpacked, idx) == None)
+  A.set(unpacked, idx, Some(MapEntry(key, value)))
+
+  HashArrayMap({count: count + 1, nodes: unpacked})
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// MapEntry
-////////////////////////////////////////////////////////////////////////////////
-let mapEntry_assoc = ((k, v), ~shift, ~hasher, ~hash, ~key, ~value) => {
-  if k == key {
-    if v == value {
-      // already exists
-      None
-    } else {
-      // only value updated
-      Some(MapEntry(key, value))
-    }
-  } else {
-    // split into a new leaf. HashCollisionNode or another SubTrie
-    let node = makeNode(~shift=shift + numBits, ~hasher, hasher(. k), k, v, hash, key, value)
-    Some(node)
-  }
-}
-
-/**
- * Returns None on no changes
- */
 let rec assoc = (node, ~shift, ~hasher, ~hash, ~key, ~value) => {
   switch node {
   | BitmapIndexed(node) =>
-    // TODO: hashArrayMap_fromBitmapIndexed(node)
-    bitmapIndexed_assoc(node, ~shift, ~hasher, ~hash, ~key, ~value)
+    let bit = bitpos(~hash, ~shift)
+    let idx = bitmapIndexed_findIndex(node, bit)
+    if idx == -1 && A.length(node.data) >= maxBitmapIndexedSize {
+      Some(hashArrayMap_fromBitmapIndexed(node, ~shift, ~hash, ~key, ~value))
+    } else {
+      bitmapIndexed_assoc(node, ~shift, ~hasher, ~hash, ~key, ~value)
+    }
 
   | ArrayMap(entries) =>
     let idx = arrayMap_findIndex(entries, ~key)
     if idx == -1 && A.length(entries) >= maxArrayMapEntries {
       let newNode = bitmapIndexed_make(bitpos(~hash=hasher(. key), ~shift), [MapEntry(key, value)])
-
       Some(bitmapIndexed_fromArrayMap(newNode, entries, ~shift, ~hasher))
     } else {
       let newEntries = arrayMap_assocAt(entries, idx, ~key, ~value)
@@ -524,29 +397,33 @@ and bitmapIndexed_assoc = ({bitmap, data}, ~shift, ~hasher, ~hash, ~key, ~value)
 }
 
 /**
- * TODO: make it transient
+ * TODO: make it transient ?
  */
 and bitmapIndexed_fromArrayMap = (node, entries, ~shift, ~hasher) => {
-  // assert (entries->A.length >= 8)
-  let node = ref(node)
+  let node = ref(BitmapIndexed(node))
   for i in 0 to A.length(entries) - 1 {
     let (k, v) = A.get(entries, i)
+
     node :=
-      node.contents->bitmapIndexed_assocInternal(
-        ~shift,
-        ~hasher,
-        ~hash=hasher(. k),
-        ~key=k,
-        ~value=v,
-      )
+      node.contents->assoc(~shift, ~hasher, ~hash=hasher(. k), ~key=k, ~value=v)->Belt.Option.getExn
   }
-  BitmapIndexed(node.contents)
+  node.contents
 }
 
 and hashArrayMap_assoc = ({count, nodes}, ~shift, ~hasher, ~hash, ~key, ~value) => {
-  let idx = mask(~shift, ~hash)
+  let idx = mask(~hash, ~shift)
   switch A.get(nodes, idx) {
-  | Some(node) => assoc(node, ~shift=shift + numBits, ~hasher, ~hash, ~key, ~value)
+  | Some(node) =>
+    switch assoc(node, ~shift=shift + numBits, ~hasher, ~hash, ~key, ~value) {
+    | None => None
+    | Some(newNode) =>
+      Some(
+        HashArrayMap({
+          count: count,
+          nodes: A.cloneAndSet(nodes, idx, Some(newNode)),
+        }),
+      )
+    }
   | None =>
     Some(
       HashArrayMap({
@@ -557,9 +434,26 @@ and hashArrayMap_assoc = ({count, nodes}, ~shift, ~hasher, ~hash, ~key, ~value) 
   }
 }
 
-/**
- * TODO: this breaks === equality
- */
+and mapEntry_assoc = ((k, v), ~shift, ~hasher, ~hash, ~key, ~value) => {
+  if k == key {
+    if v == value {
+      // already exists
+      None
+    } else {
+      // only value updated
+      Some(MapEntry(key, value))
+    }
+  } else {
+    let h1 = hasher(. k)
+    if h1 == hash {
+      Some(HashCollision(hashCollision_make(h1, [(k, v), (key, value)])))
+    } else {
+      let node = bitmapIndexed_make(bitpos(~hash=h1, ~shift), [MapEntry(k, v)])
+      node->bitmapIndexed_assoc(~shift, ~hasher, ~hash, ~key, ~value)
+    }
+  }
+}
+
 let dissoc = (node, ~shift, ~hash, ~key) => {
   switch node {
   | BitmapIndexed(node) =>
@@ -587,9 +481,28 @@ let dissoc = (node, ~shift, ~hash, ~key) => {
 }
 
 let log = node => {
-  switch node {
-  | ArrayMap(node) => Js.log(j`ArrayNode: $node`)
-  | BitmapIndexed({bitmap, _}) => Js.log(j`BitmapIndexed: ` ++ Bit.toBinString(bitmap))
-  | _ => assert false
+  let rec f = (node, ~depth) => {
+    let ilog = string => {
+      Js.log(Js.String2.repeat("  ", depth) ++ string)
+    }
+    switch node {
+    | ArrayMap(node) => ilog(j`ArrayNode: $node`)
+    | BitmapIndexed({bitmap, data}) => {
+        ilog(j`BitmapIndexed: ` ++ Bit.toBinString(bitmap))
+        data->A.forEach(child => f(child, ~depth=depth + 1))
+      }
+    | HashArrayMap({count, nodes}) => {
+        ilog(j`HashArrayMap: $count`)
+        nodes->Belt.Array.forEachWithIndex((i, n) => {
+          switch n {
+          | None => ilog(j`  (undefined): $i`)
+          | Some(child) => f(child, ~depth=depth + 1)
+          }
+        })
+      }
+    | MapEntry(k, _) => ilog(j`MapEntry: $k`)
+    | _ => assert false
+    }
   }
+  f(node, ~depth=0)
 }

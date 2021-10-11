@@ -15,7 +15,7 @@ function get(s, v) {
   
 }
 
-function set(s, v) {
+function add(s, v) {
   return {
           hashMap: HashMap.set(s.hashMap, v, undefined)
         };
@@ -36,7 +36,7 @@ function fromArray(ar) {
     contents: empty
   };
   ar.forEach(function (x) {
-        s.contents = set(s.contents, x);
+        s.contents = add(s.contents, x);
         
       });
   return s.contents;
@@ -49,7 +49,7 @@ function log(s) {
 export {
   empty ,
   get ,
-  set ,
+  add ,
   remove ,
   size ,
   fromArray ,

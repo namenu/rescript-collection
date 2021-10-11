@@ -42,4 +42,7 @@ let remove = ({root, count, hasher} as m, k) => {
 
 let size = m => m.count
 
-let log = m => Hamt.log(m.root)
+let log = m => {
+  Js.log2("count:", m.count)
+  Hamt.log(m.root)
+}

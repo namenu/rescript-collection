@@ -4,7 +4,7 @@ let empty: t
 
 let get: (t, int) => option<int>
 
-let set: (t, int) => t
+let add: (t, int) => t
 
 let remove: (t, int) => t
 

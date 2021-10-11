@@ -22,7 +22,7 @@ Belt.Array.reduce(actions, init, ((s1, s2), action) => {
       } else {
         0
       }
-    let s1 = s1->HashSet.Int.set(x)
+    let s1 = s1->HashSet.Int.add(x)
     let s2 = s2->Belt.Set.Int.add(x)
     assert (s1->HashSet.Int.size == len)
     (s1, s2)

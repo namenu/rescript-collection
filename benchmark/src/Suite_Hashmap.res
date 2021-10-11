@@ -47,11 +47,11 @@ module Insert = {
 
   let benchmarks = [
     {
-      name: j`HashSet.Int.set`,
+      name: j`HashSet.Int.add`,
       f: (. ()) => {
-        a1k->A.reduce(HashSet.Int.empty, HashSet.Int.set)->Any
+        a1k->A.reduce(HashSet.Int.empty, HashSet.Int.add)->Any
       },
-      code: j`a1k->A.reduce(HashSet.Int.empty, HashSet.Int.set)`,
+      code: j`a1k->A.reduce(HashSet.Int.empty, HashSet.Int.add)`,
     },
     {
       name: `Belt.Set.Int.add`,

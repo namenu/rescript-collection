@@ -11,7 +11,7 @@ let get = (s, v) => {
   }
 }
 
-let set = (s, v) => {
+let add = (s, v) => {
   {
     hashMap: s.hashMap->HashMap.set(v, None),
   }
@@ -28,7 +28,7 @@ let size = s => HashMap.size(s.hashMap)
 let fromArray = ar => {
   let s = ref(empty)
   JsArray.forEach(ar, x => {
-    s := s.contents->set(x)
+    s := s.contents->add(x)
   })
   s.contents
 }

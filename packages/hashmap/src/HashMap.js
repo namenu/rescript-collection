@@ -46,6 +46,7 @@ function size(m) {
 }
 
 function log(m) {
+  console.log("count:", m.count);
   return Hamt.log(m.root);
 }
 

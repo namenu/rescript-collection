@@ -71,10 +71,10 @@ var setup$1 = "let a1k = A.makeByAndShuffle(1000, i => i)";
 
 var benchmarks$1 = [
   {
-    name: "HashSet.Int.set",
-    code: "a1k->A.reduce(HashSet.Int.empty, HashSet.Int.set)",
+    name: "HashSet.Int.add",
+    code: "a1k->A.reduce(HashSet.Int.empty, HashSet.Int.add)",
     f: (function () {
-        return Belt_Array.reduce(a1k, HashSet_Int.empty, HashSet_Int.set);
+        return Belt_Array.reduce(a1k, HashSet_Int.empty, HashSet_Int.add);
       })
   },
   {

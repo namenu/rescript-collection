@@ -35,7 +35,7 @@ Belt_Array.reduce(actions, init, (function (param, action) {
           var len = Belt_SetInt.size(s2) + (
             Belt_Option.isNone(Belt_SetInt.get(s2, x)) ? 1 : 0
           ) | 0;
-          var s1$1 = HashSet_Int.set(s1, x);
+          var s1$1 = HashSet_Int.add(s1, x);
           var s2$1 = Belt_SetInt.add(s2, x);
           if (HashSet_Int.size(s1$1) !== len) {
             throw {

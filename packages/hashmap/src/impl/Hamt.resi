@@ -4,16 +4,21 @@ type rec node<'k, 'v> =
   | HashArrayMap(hashArrayMapNode<'k, 'v>)
   | MapEntry(mapEntry<'k, 'v>)
   | HashCollision(hashCollisionNode<'k, 'v>)
+
 and arrayMapNode<'k, 'v> = array<('k, 'v)>
+
 and bitmapIndexedNode<'k, 'v> = {
   bitmap: int,
   data: array<node<'k, 'v>>,
 }
+
 and hashArrayMapNode<'k, 'v> = {
   count: int,
   nodes: array<option<node<'k, 'v>>>,
 }
+
 and mapEntry<'k, 'v> = ('k, 'v)
+
 and hashCollisionNode<'k, 'v> = {
   hash: int,
   entries: array<mapEntry<'k, 'v>>,
