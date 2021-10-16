@@ -29,13 +29,18 @@ function set(m, k, v) {
 }
 
 function remove(m, k) {
-  var root$p = Hamt.dissoc(m.root, 0, m.hasher(k), k);
-  if (root$p !== undefined) {
-    return {
-            root: root$p,
-            count: m.count - 1 | 0,
-            hasher: m.hasher
-          };
+  var hasher = m.hasher;
+  var match = Hamt.dissoc(m.root, 0, hasher(k), k);
+  if (match !== undefined) {
+    if (match) {
+      return {
+              root: match._0,
+              count: m.count - 1 | 0,
+              hasher: m.hasher
+            };
+    } else {
+      return make(hasher);
+    }
   } else {
     return m;
   }

@@ -51,6 +51,8 @@ and hashCollisionNode<'k, 'v> = {
   entries: array<mapEntry<'k, 'v>>,
 }
 
+type dissocResult<'k, 'v> = Empty | Node(node<'k, 'v>)
+
 let empty = () => {
   ArrayMap([])
   // BitmapIndexed(makeBitmapIndexed(0, []))
@@ -89,21 +91,14 @@ let hashCollision_assoc = ({entries} as self, ~key, ~value) => {
   }
 }
 
-module HashCollision = {
-  type t<'k, 'v> = hashCollisionNode<'k, 'v>
-
-  /**
-   * 값이 2개 -> 1개가 된다면 MapEntry로도 볼 수 있지만, 로직의 간소화를 위해 HashCollisionNode로 일반화하였음
-   */
-  let dissoc = ({entries} as self: t<'k, 'v>, ~key: 'k): option<t<'k, 'v>> => {
-    let idx = hashCollision_findIndex(self, ~key)
-    if idx == -1 {
-      Some(self)
-    } else if A.length(entries) == 1 {
-      None
-    } else {
-      Some({...self, entries: A.cloneWithout(entries, idx)})
-    }
+let hashCollision_dissoc = ({entries} as self, ~key) => {
+  let idx = hashCollision_findIndex(self, ~key)
+  if idx == -1 {
+    None
+  } else if A.length(entries) == 1 {
+    Some(Empty)
+  } else {
+    Some(Node(HashCollision({...self, entries: A.cloneWithout(entries, idx)})))
   }
 }
 
@@ -235,81 +230,6 @@ and hashArrayMap_find = ({nodes}, ~shift, ~hash, ~key) => {
   switch A.get(nodes, idx) {
   | None => None
   | Some(node) => find(node, ~shift, ~hash, ~key)
-  }
-}
-
-/**
- * 논문에서는 노드가 2개 이하인 경우 trie 축소를 하지만,
- * dissoc 구현에서는 노드가 1개 인 경우에만 축소를 수행하여 메모리보다 성능을 우선하였음.
- *
- * 삭제할 key가 없을 경우에도 Some(self)를 반환
- * Node가 삭제되어야 할 경우 None 반환
- */
-let rec bitmapIndexed_dissoc = ({bitmap, data} as self, ~shift, ~hash, ~key) => {
-  let bit = bitpos(~hash, ~shift)
-
-  switch bitmap->land(bit) {
-  | 0 =>
-    // key doesn't exist
-    Some(self)
-  | _ =>
-    let idx = indexOfBit(bitmap, bit)
-    let child = data->A.get(idx)
-    switch child {
-    | BitmapIndexed(trie) =>
-      switch bitmapIndexed_dissoc(trie, ~shift=shift + numBits, ~hash, ~key) {
-      | Some(newChild) =>
-        if newChild === trie {
-          // key doesn't exist
-          Some(self)
-        } else {
-          Some({
-            bitmap: bitmap,
-            data: A.cloneAndSet(data, idx, BitmapIndexed(newChild)),
-          })
-        }
-      | None => unset(self, bit, idx)
-      }
-    | MapEntry(k, _) =>
-      if k == key {
-        unset(self, bit, idx)
-      } else {
-        // key doesn't exist
-        Some(self)
-      }
-
-    | HashCollision(node) =>
-      switch HashCollision.dissoc(node, ~key) {
-      | Some(newChild) =>
-        if newChild === node {
-          // key doesn't exist
-          Some(self)
-        } else {
-          // assert (A.length(newChild.entries) == A.length(node.entries) - 1)
-          Some({
-            bitmap: bitmap,
-            data: A.cloneAndSet(data, idx, HashCollision(newChild)),
-          })
-        }
-      | None => unset(self, bit, idx)
-      }
-
-    | _ => assert false
-    }
-  }
-}
-/**
- * Assume that there's always a value at `idx`
- */
-and unset = ({bitmap, data}, bit, idx) => {
-  if bitmap == bit {
-    // compaction, recursively
-    None
-  } else {
-    Some({
-      bitmap: bitmap->lxor(bit),
-      data: data->A.cloneWithout(idx),
-    })
   }
 }
 
@@ -454,29 +374,104 @@ and mapEntry_assoc = ((k, v), ~shift, ~hasher, ~hash, ~key, ~value) => {
   }
 }
 
-let dissoc = (node, ~shift, ~hash, ~key) => {
+let rec dissoc = (node, ~shift, ~hash, ~key) => {
   switch node {
-  | BitmapIndexed(node) =>
-    switch bitmapIndexed_dissoc(node, ~shift, ~hash, ~key) {
-    | Some(newNode) =>
-      if newNode === node {
-        None
-      } else {
-        Some(BitmapIndexed(newNode))
-      }
-    | None => Some(empty())
-    }
   | ArrayMap(node) =>
     let newNode = arrayMap_dissoc(node, ~key)
     if newNode === node {
       None
     } else {
-      Some(ArrayMap(newNode))
+      Some(Node(ArrayMap(newNode)))
     }
-  | HashArrayMap(_)
-  | MapEntry(_)
-  | HashCollision(_) =>
-    assert false
+
+  | BitmapIndexed(node) => bitmapIndexed_dissoc(node, ~shift, ~hash, ~key)
+
+  | HashArrayMap(node) => hashArrayMap_dissoc(node, ~shift, ~hash, ~key)
+
+  | MapEntry(k, _) =>
+    assert (k == key)
+
+    if k == key {
+      Some(Empty)
+    } else {
+      None
+    }
+
+  | HashCollision(node) => hashCollision_dissoc(node, ~key)
+  }
+}
+
+and bitmapIndexed_dissoc = ({bitmap, data}, ~shift, ~hash, ~key) => {
+  let bit = bitpos(~hash, ~shift)
+
+  switch bitmap->land(bit) {
+  | 0 =>
+    // key doesn't exist
+    None
+  | _ =>
+    let idx = indexOfBit(bitmap, bit)
+    let child = data->A.get(idx)
+
+    switch dissoc(child, ~shift=shift + numBits, ~hash, ~key) {
+    | None => None
+    | Some(Empty) =>
+      // is that was my only child ?
+      if bitmap == bit {
+        Some(Empty)
+      } else {
+        Some(
+          Node(
+            BitmapIndexed({
+              bitmap: bitmap->lxor(bit),
+              data: data->A.cloneWithout(idx),
+            }),
+          ),
+        )
+      }
+    | Some(Node(newNode)) =>
+      Some(
+        Node(
+          BitmapIndexed({
+            bitmap: bitmap,
+            data: data->A.cloneAndSet(idx, newNode),
+          }),
+        ),
+      )
+    }
+  }
+}
+
+and hashArrayMap_dissoc = ({count, nodes}, ~shift, ~hash, ~key) => {
+  let idx = mask(~hash, ~shift)
+  switch A.get(nodes, idx) {
+  | None => None
+  | Some(child) =>
+    switch dissoc(child, ~shift=shift + numBits, ~hash, ~key) {
+    | None => None
+    | Some(Empty) =>
+      // is that was my only child ?
+      if count == 1 {
+        Some(Empty)
+      } else {
+        Some(
+          Node(
+            HashArrayMap({
+              count: count - 1,
+              nodes: nodes->A.cloneAndSet(idx, None),
+            }),
+          ),
+        )
+      }
+    | Some(Node(newNode)) =>
+      Some(
+        Node(
+          HashArrayMap({
+            count: count,
+            nodes: nodes->A.cloneAndSet(idx, Some(newNode)),
+          }),
+        ),
+      )
+    }
   }
 }
 

@@ -21,12 +21,19 @@ function set(m, k, v) {
 }
 
 function remove(m, k) {
-  var root$p = Hamt.dissoc(m.root, 0, Hash.hashString(k), k);
-  if (root$p !== undefined) {
-    return {
-            root: root$p,
-            count: m.count - 1 | 0
-          };
+  var match = Hamt.dissoc(m.root, 0, Hash.hashString(k), k);
+  if (match !== undefined) {
+    if (match) {
+      return {
+              root: match._0,
+              count: m.count - 1 | 0
+            };
+    } else {
+      return {
+              root: Hamt.empty(undefined),
+              count: 0
+            };
+    }
   } else {
     return m;
   }
@@ -37,12 +44,10 @@ function size(m) {
 }
 
 function fromArray(ar) {
-  var empty_root = Hamt.empty(undefined);
-  var empty = {
-    root: empty_root,
-    count: 0
-  };
-  return Belt_Array.reduceU(ar, empty, (function (m, param) {
+  return Belt_Array.reduceU(ar, {
+              root: Hamt.empty(undefined),
+              count: 0
+            }, (function (m, param) {
                 return set(m, param[0], param[1]);
               }));
 }

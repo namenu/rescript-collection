@@ -31,12 +31,13 @@ let set = ({root, count, hasher} as m, k, v) => {
 
 let remove = ({root, count, hasher} as m, k) => {
   switch Hamt.dissoc(root, ~shift=0, ~hash=hasher(. k), ~key=k) {
-  | Some(root') => {
+  | None => m
+  | Some(Empty) => make(~hasher)
+  | Some(Node(root')) => {
       ...m,
       root: root',
       count: count - 1,
     }
-  | None => m
   }
 }
 

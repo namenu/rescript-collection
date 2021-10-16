@@ -3,6 +3,11 @@ type t<'v> = {
   count: int,
 }
 
+let empty = () => {
+  root: Hamt.empty(),
+  count: 0,
+}
+
 let get = ({root}, k) => {
   Hamt.find(root, ~shift=0, ~hash=Hash.hashString(. k), ~key=k)
 }
@@ -26,17 +31,17 @@ let set = ({root, count} as m, k, v) => {
 
 let remove = ({root, count} as m, k) => {
   switch Hamt.dissoc(root, ~shift=0, ~hash=Hash.hashString(. k), ~key=k) {
-  | Some(root') => {
+  | None => m
+  | Some(Empty) => empty()
+  | Some(Node(root')) => {
       root: root',
       count: count - 1,
     }
-  | None => m
   }
 }
 
 let size = m => m.count
 
 let fromArray = ar => {
-  let empty = {root: Hamt.empty(), count: 0}
-  Belt.Array.reduceU(ar, empty, (. m, (k, v)) => set(m, k, v))
+  Belt.Array.reduceU(ar, empty(), (. m, (k, v)) => set(m, k, v))
 }

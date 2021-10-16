@@ -37,6 +37,15 @@ let assoc: (
   ~value: 'v,
 ) => option<node<'k, 'v>>
 
-let dissoc: (node<'k, 'v>, ~shift: int, ~hash: int, ~key: 'k) => option<node<'k, 'v>>
+
+type dissocResult<'k, 'v> = Empty | Node(node<'k, 'v>)
+
+/**
+ * key 에 해당하는 값이 없으면 None 반환
+ * Some(Empty) 일 경우 재귀적으로 Empty 여부를 체크해야 함
+ * 
+ * dissoc은 canonical form을 보장하지 않음 (예: MapEntry가 1개인 bitmapIndexedNode가 생길 수 있음)
+ */
+let dissoc: (node<'k, 'v>, ~shift: int, ~hash: int, ~key: 'k) => option<dissocResult<'k, 'v>>
 
 let log: node<'k, 'v> => unit
