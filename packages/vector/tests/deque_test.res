@@ -1,25 +1,21 @@
 open Zora
 
-zora("emptyness", t => {
+zora("emptyness", async t => {
   let empty = Deque.empty
-  t->test("remove", t => {
+  t->test("remove", async t => {
     t->is(empty, empty->Deque.popFront, "")
     t->is(empty, empty->Deque.popBack, "")
-    done()
   })
 
-  t->test("get", t => {
+  t->test("get", async t => {
     t->is(None, empty->Deque.peekFront, "")
     t->is(None, empty->Deque.peekBack, "")
     t->is(empty, empty->Deque.popFront, "")
     t->is(empty, empty->Deque.popFront, "")
-    done()
   })
-
-  done()
 })
 
-zora("toArray", t => {
+zora("toArray", async t => {
   let dq =
     Deque.empty
     ->Deque.pushBack(0)
@@ -33,11 +29,10 @@ zora("toArray", t => {
     ->Deque.pushFront(8)
     ->Deque.pushFront(9)
     ->Deque.toArray
-  t->is(true, dq == [9,8,7,6,5,4,3,2,0,1], "")
-  done()
+  t->is(true, dq == [9, 8, 7, 6, 5, 4, 3, 2, 0, 1], "")
 })
 
-zora("adventofcode 2018-9", t => {
+zora("adventofcode 2018-9", async t => {
   module Circle = {
     // type t = Deque.t<int>
 
@@ -101,6 +96,4 @@ zora("adventofcode 2018-9", t => {
 
   t->is(play(Circle.make(), 459, 71790), 386151, "")
   t->is(play(Circle.make(), 459, 717900), 32700280, "")
-
-  done()
 })

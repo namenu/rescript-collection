@@ -20,71 +20,64 @@ function pushpop(n, m) {
               }));
 }
 
-Zora$1.test("Vector initialize", (function (t) {
+Zora$1.test("Vector initialize", (async function (t) {
         t.equal(Vector.length(Vector.make(undefined)), 0, "make empty vector");
         t.equal(Vector.fromArray([]), Vector.make(undefined), "make from empty array");
         Belt_Array.forEach(Belt_Array.range(1, 32), (function (n) {
                 t.ok(isomorphic(Belt_Array.range(1, n)), "fromArray length=" + String(n) + "");
               }));
-        Belt_Array.forEach(Belt_Array.rangeBy(1000, 10000, 1000), (function (n) {
-                t.ok(isomorphic(Belt_Array.range(1, n)), "fromArray length=" + String(n) + "");
-              }));
-        return Zora.done(undefined);
+        return Belt_Array.forEach(Belt_Array.rangeBy(1000, 10000, 1000), (function (n) {
+                      t.ok(isomorphic(Belt_Array.range(1, n)), "fromArray length=" + String(n) + "");
+                    }));
       }));
 
-Zora$1.test("Vector.push", (function (t) {
-        t.test("push", (function (t) {
-                Belt_Array.forEach(Belt_Array.range(1, 64), (function (n) {
-                        var v1 = Belt_Array.reduce(Belt_Array.range(1, n), Vector.make(undefined), Vector.push);
-                        var v2 = Vector.fromArray(Belt_Array.range(1, n));
-                        t.equal(v1, v2, "should be equal");
-                      }));
-                return Zora.done(undefined);
+Zora$1.test("Vector.push", (async function (t) {
+        t.test("push", (async function (t) {
+                return Belt_Array.forEach(Belt_Array.range(1, 64), (function (n) {
+                              var v1 = Belt_Array.reduce(Belt_Array.range(1, n), Vector.make(undefined), Vector.push);
+                              var v2 = Vector.fromArray(Belt_Array.range(1, n));
+                              t.equal(v1, v2, "should be equal");
+                            }));
               }));
-        t.test("root overflow", (function (t) {
+        t.test("root overflow", (async function (t) {
                 var v1 = Belt_Array.reduce(Belt_Array.range(1, 32768), Vector.make(undefined), Vector.push);
                 var v2 = Vector.fromArray(Belt_Array.range(1, 32768));
                 t.equal(v1, v2, "should be equal");
-                return Zora.done(undefined);
               }));
-        return Zora.done(undefined);
       }));
 
-Zora$1.test("Vector.pop", (function (t) {
-        t.test("pop", (function (t) {
-                Belt_Array.forEach([
-                      [
-                        100,
-                        50
-                      ],
-                      [
-                        100,
-                        100
-                      ],
-                      [
-                        10000,
-                        5000
-                      ]
-                    ], (function (param) {
-                        var m = param[1];
-                        var n = param[0];
-                        t.equal(Vector.toArray(pushpop(n, m)), Belt_Array.range(1, n - m | 0), "should be equal");
-                      }));
-                return Zora.done(undefined);
+Zora$1.test("Vector.pop", (async function (t) {
+        t.test("pop", (async function (t) {
+                return Belt_Array.forEach([
+                            [
+                              100,
+                              50
+                            ],
+                            [
+                              100,
+                              100
+                            ],
+                            [
+                              10000,
+                              5000
+                            ]
+                          ], (function (param) {
+                              var m = param[1];
+                              var n = param[0];
+                              t.equal(Vector.toArray(pushpop(n, m)), Belt_Array.range(1, n - m | 0), "should be equal");
+                            }));
               }));
-        t.test("root overflow", (function (t) {
+        t.test("root overflow", (async function (t) {
                 var ar = Belt_Array.range(1, 32768);
                 var v = Vector.fromArray(ar);
                 var ev = Belt_Array.reduce(ar, v, (function (v, param) {
                         return Vector.pop(v);
                       }));
                 t.ok(Vector.length(ev) === 0, "should be empty");
-                return Zora.done(undefined);
               }));
-        return Zora.done(undefined);
       }));
 
-Zora$1.test("Vector.get", (function (t) {
+Zora$1.test("Vector.get", (async function (t) {
         var v = pushpop(20000, 10000);
         t.test("random access (10,000 times)", (function (t) {
                 var every = Belt_Array.every(Belt_Array.range(1, 10000), (function (param) {
@@ -116,12 +109,11 @@ Zora$1.test("Vector.get", (function (t) {
                 Zora.optionNone(t, Vector.get(v, -1), "should be none");
                 Zora.optionNone(t, Vector.get(v, 10000), "should be none");
               }));
-        return Zora.done(undefined);
       }));
 
-Zora$1.test("Vector.set", (function (t) {
+Zora$1.test("Vector.set", (async function (t) {
         var v = Vector.fromArray(Belt_Array.range(1, 10000));
-        t.test("random update (" + 10000 + " items)", (function (t) {
+        t.test("random update (" + String(10000) + " items)", (function (t) {
                 var ar = Belt_Array.shuffle(Belt_Array.range(1, 10000));
                 var v$p = Belt_Array.reduce(ar, v, (function (v, idx) {
                         return Vector.setExn(v, idx - 1 | 0, Math.imul(idx, -1));
@@ -146,7 +138,7 @@ Zora$1.test("Vector.set", (function (t) {
                       }));
               }));
         var ar = Belt_Array.range(1, 10000);
-        t.test("mutable random update (" + 10000 + " times)", (function (t) {
+        t.test("mutable random update (" + String(10000) + " times)", (function (t) {
                 Belt_Array.forEach(Belt_Array.shuffle(Belt_Array.range(1, 10000)), (function (idx) {
                         ar[idx - 1 | 0] = Math.imul(idx, -1);
                       }));
@@ -155,10 +147,9 @@ Zora$1.test("Vector.set", (function (t) {
                       }));
                 t.ok(every, "should be ok");
               }));
-        return Zora.done(undefined);
       }));
 
-Zora$1.test("Vector.reduce", (function (t) {
+Zora$1.test("Vector.reduce", (async function (t) {
         var v = Vector.fromArray(Belt_Array.range(1, 100));
         t.test("sum", (function (t) {
                 var sum = Vector.reduce(v, 0, (function (acc, i) {
@@ -172,47 +163,45 @@ Zora$1.test("Vector.reduce", (function (t) {
                       }));
                 t.is(sum, 5050, "sum is 5050");
               }));
-        return Zora.done(undefined);
       }));
 
-Zora$1.test("Prop test: should always equally sized", (function (t) {
+Zora$1.test("Prop test: should always equally sized", (async function (t) {
         var p1 = FastCheck.array(FastCheck.integer(), 0, 10000);
         var p2 = FastCheck.integer(2, 10);
-        FastCheck.assert(FastCheck.property(p1, p2, (function (xs, prob) {
-                    var a = [];
-                    var v = {
-                      contents: Vector.make(undefined)
-                    };
-                    Belt_Array.forEach(xs, (function (n) {
-                            v.contents = Caml_int32.mod_(n, prob) !== 0 ? (a.push(n), Vector.push(v.contents, n)) : (a.pop(), Vector.pop(v.contents));
-                            if (!Caml_obj.equal(a, Vector.toArray(v.contents))) {
-                              throw {
-                                    RE_EXN_ID: "Assert_failure",
-                                    _1: [
-                                      "vector_test.res",
-                                      184,
-                                      10
-                                    ],
-                                    Error: new Error()
-                                  };
-                            }
-                            if (a.length === Vector.length(v.contents)) {
-                              return ;
-                            }
-                            throw {
-                                  RE_EXN_ID: "Assert_failure",
-                                  _1: [
-                                    "vector_test.res",
-                                    185,
-                                    10
-                                  ],
-                                  Error: new Error()
-                                };
-                          }));
-                    t.equal(a.length, Vector.length(v.contents), "equal length");
-                    return a.length === Vector.length(v.contents);
-                  })));
-        return Zora.done(undefined);
+        return FastCheck.assert(FastCheck.property(p1, p2, (function (xs, prob) {
+                          var a = [];
+                          var v = {
+                            contents: Vector.make(undefined)
+                          };
+                          Belt_Array.forEach(xs, (function (n) {
+                                  v.contents = Caml_int32.mod_(n, prob) !== 0 ? (a.push(n), Vector.push(v.contents, n)) : (a.pop(), Vector.pop(v.contents));
+                                  if (!Caml_obj.equal(a, Vector.toArray(v.contents))) {
+                                    throw {
+                                          RE_EXN_ID: "Assert_failure",
+                                          _1: [
+                                            "vector_test.res",
+                                            166,
+                                            10
+                                          ],
+                                          Error: new Error()
+                                        };
+                                  }
+                                  if (a.length === Vector.length(v.contents)) {
+                                    return ;
+                                  }
+                                  throw {
+                                        RE_EXN_ID: "Assert_failure",
+                                        _1: [
+                                          "vector_test.res",
+                                          167,
+                                          10
+                                        ],
+                                        Error: new Error()
+                                      };
+                                }));
+                          t.equal(a.length, Vector.length(v.contents), "equal length");
+                          return a.length === Vector.length(v.contents);
+                        })));
       }));
 
 var A;

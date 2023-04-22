@@ -38,7 +38,7 @@ export const push: <a>(_1:t<a>, _2:a) => t<a> = function <a>(Arg1: any, Arg2: an
 
 export const pop: <a>(_1:t<a>) => t<a> = indexBS.pop;
 
-export const get: <a>(_1:t<a>, _2:number) => (null | undefined | a) = function <a>(Arg1: any, Arg2: any) {
+export const get: <a>(_1:t<a>, _2:number) => (undefined | a) = function <a>(Arg1: any, Arg2: any) {
   const result = Curry._2(indexBS.get, Arg1, Arg2);
   return result
 };
@@ -53,27 +53,27 @@ export const getUnsafe: <a>(_1:t<a>, _2:number) => a = function <a>(Arg1: any, A
   return result
 };
 
-export const getByU: <a>(_1:t<a>, _2:((_1:a) => boolean)) => (null | undefined | a) = function <a>(Arg1: any, Arg2: any) {
+export const getByU: <a>(_1:t<a>, _2:((_1:a) => boolean)) => (undefined | a) = function <a>(Arg1: any, Arg2: any) {
   const result = Curry._2(indexBS.getByU, Arg1, Arg2);
   return result
 };
 
-export const getBy: <a>(_1:t<a>, _2:((_1:a) => boolean)) => (null | undefined | a) = function <a>(Arg1: any, Arg2: any) {
+export const getBy: <a>(_1:t<a>, _2:((_1:a) => boolean)) => (undefined | a) = function <a>(Arg1: any, Arg2: any) {
   const result = Curry._2(indexBS.getBy, Arg1, Arg2);
   return result
 };
 
-export const getIndexByU: <a>(_1:t<a>, _2:((_1:a) => boolean)) => (null | undefined | number) = function <a>(Arg1: any, Arg2: any) {
+export const getIndexByU: <a>(_1:t<a>, _2:((_1:a) => boolean)) => (undefined | number) = function <a>(Arg1: any, Arg2: any) {
   const result = Curry._2(indexBS.getIndexByU, Arg1, Arg2);
   return result
 };
 
-export const getIndexBy: <a>(_1:t<a>, _2:((_1:a) => boolean)) => (null | undefined | number) = function <a>(Arg1: any, Arg2: any) {
+export const getIndexBy: <a>(_1:t<a>, _2:((_1:a) => boolean)) => (undefined | number) = function <a>(Arg1: any, Arg2: any) {
   const result = Curry._2(indexBS.getIndexBy, Arg1, Arg2);
   return result
 };
 
-export const set: <a>(_1:t<a>, _2:number, _3:a) => (null | undefined | t<a>) = function <a>(Arg1: any, Arg2: any, Arg3: any) {
+export const set: <a>(_1:t<a>, _2:number, _3:a) => (undefined | t<a>) = function <a>(Arg1: any, Arg2: any, Arg3: any) {
   const result = Curry._3(indexBS.set, Arg1, Arg2, Arg3);
   return result
 };
@@ -133,19 +133,13 @@ export const keep: <a>(_1:t<a>, _2:((_1:a) => boolean)) => t<a> = function <a>(A
   return result
 };
 
-export const keepMapU: <a,b>(_1:t<a>, _2:((_1:a) => (null | undefined | b))) => t<b> = function <a,b>(Arg1: any, Arg2: any) {
-  const result = Curry._2(indexBS.keepMapU, Arg1, function (Arg11: any) {
-      const result1 = Arg2(Arg11);
-      return (result1 == null ? undefined : result1)
-    });
+export const keepMapU: <a,b>(_1:t<a>, _2:((_1:a) => (undefined | b))) => t<b> = function <a,b>(Arg1: any, Arg2: any) {
+  const result = Curry._2(indexBS.keepMapU, Arg1, Arg2);
   return result
 };
 
-export const keepMap: <a,b>(_1:t<a>, _2:((_1:a) => (null | undefined | b))) => t<b> = function <a,b>(Arg1: any, Arg2: any) {
-  const result = Curry._2(indexBS.keepMap, Arg1, function (Arg11: any) {
-      const result1 = Arg2(Arg11);
-      return (result1 == null ? undefined : result1)
-    });
+export const keepMap: <a,b>(_1:t<a>, _2:((_1:a) => (undefined | b))) => t<b> = function <a,b>(Arg1: any, Arg2: any) {
+  const result = Curry._2(indexBS.keepMap, Arg1, Arg2);
   return result
 };
 

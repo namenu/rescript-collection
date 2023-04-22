@@ -36,8 +36,8 @@
     "res:clean": "rescript clean",
     "bundle": "nanobundle build --clean",
     "prepack": "yarn res:build && yarn bundle",
-    "test": "node tests/vector_test.mjs | faucet",
-    "test:watch": "yarn test || true && watchlist src tests -- yarn test",
+    "test": "pta 'tests/*_test.mjs'",
+    "test:watch": "onchange --initial '{tests,src}/*.mjs' -- yarn test",
     "test:coverage": "c8 -r text -r lcov yarn test"
   },
   "files": [
@@ -50,14 +50,14 @@
     "@rescript/std": "^10.1.0"
   },
   "devDependencies": {
-    "@dusty-phillips/rescript-zora": "git+https://github.com/reason-seoul/rescript-zora",
+    "@dusty-phillips/rescript-zora": "^4.0.0",
     "browserslist": "^4.21.4",
     "c8": "^7.12.0",
-    "faucet": "^0.0.3",
     "nanobundle": "^1.3.6",
+    "onchange": "^7.1.0",
+    "pta": "^1.2.0",
     "rescript": "^10.1.0",
     "rescript-fast-check": "^1.1.1",
-    "typescript": "^4.9.4",
-    "watchlist": "^0.3.1"
+    "typescript": "^4.9.4"
   }
 }
